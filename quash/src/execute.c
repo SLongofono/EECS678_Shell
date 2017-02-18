@@ -26,25 +26,26 @@
 
 // Return a string containing the current working directory.
 char* get_current_directory(bool* should_free) {
-	// TODO: Get the current working directory. This will fix the prompt path.
-	// HINT: This should be pretty simple
+
 	long max_path = fpathconf(0, _PC_PATH_MAX);
 
 	// If no limit set, use a good rule of thumb value
 	if(max_path < 0){
-	max_path = 4096;
+		max_path = 4096;
 	}
 
 	// Change this to true if necessary
-	*should_free = false;
+	*should_free = true;
 
-	// This may break, but it worked in preliminary testing.
-	// TODO: Test this out thoroughly
-	return getcwd((char*)NULL, max_path);  //"get_current_directory()";
+	char *temp = malloc(4096);
+	getcwd(temp, max_path);
+
+	return temp;//getcwd((char*)NULL, max_path);  //"get_current_directory()";
 }
 
 // Returns the value of an environment variable env_var
 const char* lookup_env(const char* env_var) {
+
 	// TODO: Lookup environment variables. This is required for parser to be able
 	// to interpret variables from the command line and display the prompt
 	// correctly
@@ -55,6 +56,7 @@ const char* lookup_env(const char* env_var) {
 
 // Check the status of background jobs
 void check_jobs_bg_status() {
+
 	// TODO: Check on the statuses of all processes belonging to all background
 	// jobs. This function should remove jobs from the jobs queue once all
 	// processes belonging to a job have completed.
@@ -89,18 +91,14 @@ void print_job_bg_complete(int job_id, pid_t pid, const char* cmd) {
 // Run a program reachable by the path environment variable, relative path, or
 // absolute path
 void run_generic(GenericCommand cmd) {
+
 	// Execute a program with a list of arguments. The `args` array is a NULL
 	// terminated (last string is always NULL) list of strings. The first element
 	// in the array is the executable
 	char* exec = cmd.args[0];
 	char** args = cmd.args;
 
-	// TODO: Remove warning silencers
-	(void) exec; // Silence unused variable warning
-	(void) args; // Silence unused variable warning
-
-	// TODO: Implement run generic
-	IMPLEMENT_ME();
+	execvp(exec, args);
 
 	perror("ERROR: Failed to execute program");
 }
@@ -110,10 +108,12 @@ void run_echo(EchoCommand cmd) {
 	// Print an array of strings. The args array is a NULL terminated (last
 	// string is always NULL) list of strings.
 	char** str = cmd.args;
-	while(NULL != str){
+	while(NULL != *str){
 		printf("%s", *str);
 		str++;
 	}
+
+	putchar('\n');
 
 	// Flush the buffer before returning
 	fflush(stdout);
@@ -121,21 +121,16 @@ void run_echo(EchoCommand cmd) {
 
 // Sets an environment variable
 void run_export(ExportCommand cmd) {
-	// Write an environment variable
-	const char* env_var = cmd.env_var;
-	const char* val = cmd.val;
 
-	// TODO: Remove warning silencers
-	(void) env_var; // Silence unused variable warning
-	(void) val;     // Silence unused variable warning
-
-	// TODO: Implement export.
-	// HINT: This should be quite simple.
-	IMPLEMENT_ME();
+	// Simply try to set the environment varible to the given value, no
+	// need to check that it is accurate
+	setenv(cmd.env_var, cmd.val, 1);
+	
 }
 
 // Changes the current working directory
 void run_cd(CDCommand cmd) {
+
 	// Get the directory name
 	const char* dir = cmd.dir;
 
@@ -145,16 +140,28 @@ void run_cd(CDCommand cmd) {
 		return;
 	}
 
-	char *olddir = getenv("PWD");
-	if(setenv("PWD", dir, 1)){
+	const char *temp = getenv("PWD");
+
+	// Actually change the working directory
+	if(0 != chdir(dir) ){
+		perror("ERROR: Failed to change directory");
+		return;
+	}
+
+	// Change environment variables
+	if( 0 != setenv("OLDPWD", temp, 1) ){
+		perror("ERROR: Failed to update OLDPWD");
+		return;
+	}
+	else if( 0 != setenv("PWD", dir, 1) ){
 		perror("ERROR: Failed to update PWD");
 		return;
 	}
-	setenv("OLDPWD", olddir, 1);
 }
 
 // Sends a signal to all processes contained in a job
 void run_kill(KillCommand cmd) {
+
 	int signal = cmd.sig;
 	int job_id = cmd.job;
 
@@ -169,16 +176,36 @@ void run_kill(KillCommand cmd) {
 
 // Prints the current working directory to stdout
 void run_pwd() {
+	
+	/* DONE and TESTED */
 
-	printf("%s\n", getcwd("PWD"));
+	// Per instructions, we can't just print the value of $PWD
+	long max_path = fpathconf(0, _PC_PATH_MAX);
+	
+	if(0 > max_path){
+		max_path =4096;	
+	}
 
+	char *temp = malloc(max_path);
+	//char *temp;
+
+	// Uses Malloc
+	//temp = get_current_dir_name();
+	
+	getcwd(temp, max_path);
+
+	printf("%s\n", temp);
+	
 	// Flush the buffer before returning
 	fflush(stdout);
+	
+	free(temp);
 
 }
 
 // Prints all background jobs currently in the job list to stdout
 void run_jobs() {
+
 	// TODO: Print background jobs
 	IMPLEMENT_ME();
 
@@ -202,6 +229,7 @@ void run_jobs() {
  * @sa Command
  */
 void child_run_command(Command cmd) {
+
 	CommandType type = get_command_type(cmd);
 
 	switch (type) {
@@ -245,6 +273,7 @@ void child_run_command(Command cmd) {
  * @sa Command
  */
 void parent_run_command(Command cmd) {
+
 	CommandType type = get_command_type(cmd);
 
 	switch (type) {
@@ -289,38 +318,116 @@ void parent_run_command(Command cmd) {
  * @sa Command CommandHolder
  */
 void create_process(CommandHolder holder) {
+
 	// Read the flags field from the parser
 	bool p_in  = holder.flags & PIPE_IN;
 	bool p_out = holder.flags & PIPE_OUT;
 	bool r_in  = holder.flags & REDIRECT_IN;
 	bool r_out = holder.flags & REDIRECT_OUT;
 	bool r_app = holder.flags & REDIRECT_APPEND; // This can only be true if r_out
-	                                             // is true
+						     // is true
+	/*
+	if(p_in || p_out){
+		int fd[2];
+		pipe(fd);
+	}
 
-	// TODO: Setup pipes, redirects, and new process
-	IMPLEMENT_ME();
-	if(p_in){
-		//
-	}
-	if(p_out){
-		//
-	}
-	if(r_in){
-		//  
-	}
-	if(r_out){
-		if(r_in){
-			//	
+	int pid = fork();
+	if(0 == pid){  // Child process
+	
+		if(p_in || p_out){
+		
+			// Case input pipe only
+			if(p_in && !p_out){
+				dup2(fd[0], 0);
+				close(fd[1]);
+			}
+			else if(p_out && !p_in){  // Case output pipe only
+				dup2(fd[1], 1);
+				close(fd[0]);
+			}
+			else{ // Case both input and output pip
+				dup2(fd[0], 0);
+				dup2(fd[1], 1);
+			}
 		}
+		else{
+			if(r_in){
+				// Open the file at the given path in read only mode
+				int fp = open(holder.redirect_in, O_RDONLY);
+				if (fp < 0){
+					perror("Error: could not open file for input redirection");
+					return;
+				}
+	
+				// Duplicate file descriptor to replace stdin
+				dup2(fp, 0);
+	
+				// close now that we don't need it anymore
+				close(fp);
+			}
+			if(r_out){
+				if(r_app){
+	
+					// open the file at the given path in
+					// read/write/create/append mode
+					int fp = open(holder.redirect_out, O_RDWR | O_CREAT | O_APPEND);
+	
+					if(fp < 0){
+						perror("ERROR: could not open file for output redirection");
+						return;
+					}
+	
+					// duplicate the file descriptor to replace
+					// stdout
+					dup2(fp, 1);
+	
+					// close now that we don't need it anymore
+					close(fp);
+				}
+				else{
+					
+					// open the fail at the given path in
+					// read/write/create mode
+					int fp = open(holder.redirect_out, O_RDWR | O_CREAT);
+	
+					if(fp < 0){
+						perror("Error: could not open file for output redirection");
+						return;	
+					}
+	
+					// duplicate the file descriptor to replace
+					// stdout
+					dup2(fp, 1);
+	
+					// close now that we don't need it anymore
+					close(fp);
+	
+				}
+			}
+		}
+		child_run_command(holder.cmd); // This should be done in the child branch of a fork
+	} 				       // end child process
+	else{
+		parent_run_command(holder.cmd); // This should be done in the parent branch of
+	        	                        // a fork
 	}
-
-	//parent_run_command(holder.cmd); // This should be done in the parent branch of
-	                                // a fork
-	//child_run_command(holder.cmd); // This should be done in the child branch of a fork
+	*/
+	int pid = fork();
+	if(0 == pid){
+		child_run_command(holder.cmd); // This should be done in the child branch of a fork
+		exit(0);
+	}
+	else{
+		parent_run_command(holder.cmd); // This should be done in the parent branch of
+	}
+	int status;
+	waitpid(pid, &status, 0);
 }
 
 // Run a list of commands
 void run_script(CommandHolder* holders) {
+
 	if (holders == NULL)
 		return;
 
