@@ -326,17 +326,16 @@ void create_process(CommandHolder holder) {
 	bool r_out = holder.flags & REDIRECT_OUT;
 	bool r_app = holder.flags & REDIRECT_APPEND; // This can only be true if r_out
 						     // is true
-	/*
-	if(p_in || p_out){
-		int fd[2];
-		pipe(fd);
-	}
+						     //
+	int fd[2];
+	pipe(fd);	
+	
+	
 
 	int pid = fork();
 	if(0 == pid){  // Child process
-	
+		printf("\n\np_in: %d\np_out: %d\n\n", p_in, p_out);
 		if(p_in || p_out){
-		
 			// Case input pipe only
 			if(p_in && !p_out){
 				dup2(fd[0], 0);
@@ -345,13 +344,21 @@ void create_process(CommandHolder holder) {
 			else if(p_out && !p_in){  // Case output pipe only
 				dup2(fd[1], 1);
 				close(fd[0]);
+
 			}
 			else{ // Case both input and output pip
 				dup2(fd[0], 0);
 				dup2(fd[1], 1);
 			}
 		}
+		else{  // Case no use for the pipes
+			close(fd[0]);
+			close(fd[1]);
+		}
+		/*
 		else{
+			close(fd[0]);
+			close(fd[1]);
 			if(r_in){
 				// Open the file at the given path in read only mode
 				int fp = open(holder.redirect_in, O_RDONLY);
@@ -406,21 +413,16 @@ void create_process(CommandHolder holder) {
 				}
 			}
 		}
-		child_run_command(holder.cmd); // This should be done in the child branch of a fork
-	} 				       // end child process
-	else{
-		parent_run_command(holder.cmd); // This should be done in the parent branch of
-	        	                        // a fork
-	}
-	*/
-	int pid = fork();
-	if(0 == pid){
+		*/
 		child_run_command(holder.cmd); // This should be done in the child branch of a fork
 		exit(0);
-	}
+	}// end child process block
 	else{
 		parent_run_command(holder.cmd); // This should be done in the parent branch of
+			                        // a fork
 	}
+	close(fd[0]);
+	close(fd[1]);
 	int status;
 	waitpid(pid, &status, 0);
 }
