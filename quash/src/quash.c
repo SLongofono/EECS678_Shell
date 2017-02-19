@@ -109,8 +109,28 @@ void end_main_loop() {
  */
 int main(int argc, char** argv) {
 	state = initial_state();
+	
+	
+	/*    EXAMPLE OF USAGE, job struct, job struct q (bg_q), and pid-queue
+	 *    (process_q)
+	test.job_id = 1985;
+	bg_q = new_job_queue(10);
 	process_q = new_pid_queue(10);
-	bg_q = new_pid_queue(10);
+	test.process_q = &process_q;
+	
+	pid_queue temp = new_pid_queue(1);
+	push_front_pid_queue(&temp, 1);
+	push_front_pid_queue(&temp, 2);
+	push_front_pid_queue(&temp, 3);
+	test.process_q = &temp;
+	push_front_job_queue(&bg_q, test);
+	int firstJob = peek_front_job_queue(&bg_q).job_id;
+	int firstPid = peek_front_pid_queue(peek_front_job_queue(&bg_q).process_q);
+	printf("The first job in the bg_q has id %d, and the first process in that job has id %d\n", firstJob, firstPid);
+
+	printf("Struct test:\n\tSize: %ld \n\tid: %d\n", sizeof(test), test.job_id);
+	*/
+
 
 	if (is_tty()) {
 		puts("Welcome to Quash!");

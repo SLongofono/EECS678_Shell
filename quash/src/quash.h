@@ -15,10 +15,13 @@
 #include <sys/wait.h>
 #include "execute.h"
 #include "pid_queue.h"
-
+#include "job_queue.h"
+#include "job_struct.h"
 
 pid_queue process_q;
-pid_queue bg_q;
+job_queue bg_q;
+job_struct test;
+
 /**
  * @brief Holds information about the state and environment Quash is running in
  */

@@ -213,15 +213,15 @@ void run_jobs() {
 	pid_queue temp_q = new_pid_queue(10);
 
 	// Unload everything into temp q
-	while(! is_empty_pid_queue(&bg_q)){
-		push_back_pid_queue(&temp_q, (pop_front_pid_queue(&bg_q)) );	
-	}
+	//while(! is_empty_pid_queue(&bg_q)){
+	//	push_back_pid_queue(&temp_q, (pop_front_pid_queue(&bg_q)) );	
+	//}
 
 	// Reload bg_q, printing as you go
-	while(! is_empty_pid_queue(&temp_q)){
-		printf("%d\n", peek_front_pid_queue(&temp_q));
-		push_back_pid_queue(&bg_q, (pop_front_pid_queue(&temp_q)));
-	}
+	//while(! is_empty_pid_queue(&temp_q)){
+	//	printf("%d\n", peek_front_pid_queue(&temp_q));
+	//	push_back_pid_queue(&bg_q, (pop_front_pid_queue(&temp_q)));
+	//}
 
 	destroy_pid_queue(&temp_q);
 
@@ -463,25 +463,25 @@ void run_script(CommandHolder* holders) {
 
 		// We need to wait for each to complete, then remove it from
 		// our queue of foreground processes
-		while(!is_empty_pid_queue(&process_q)){
+		//while(!is_empty_pid_queue(&process_q)){
 
-			int active, status;
+		//	int active, status;
 			// Grab the first item (presumably the oldest if we
 			// always add to the back)
-			active = pop_front_pid_queue(&process_q);
+		//	active = pop_front_pid_queue(&process_q);
 
 			// Block until the associated process exits
-			waitpid(active, &status, 0);
+		//	waitpid(active, &status, 0);
 
 			// Do we want to error check here, or is that the
 			// user's responsibility to give good input?			
-		}
+		//}
 	}
 	else {
 		// A background job.
 		// TODO: Push the new job to the job queue
 		
-		//IMPLEMENT_ME();
+		IMPLEMENT_ME();
 		//int pid = pop_front_pid_queue(&process_q);
 		//push_front_pid_queue(&bg_q, pid);
 
