@@ -20,7 +20,6 @@
 
 pid_queue process_q;
 job_queue bg_q;
-job_struct test;
 
 /**
  * @brief Holds information about the state and environment Quash is running in

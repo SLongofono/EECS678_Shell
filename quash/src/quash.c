@@ -110,7 +110,12 @@ void end_main_loop() {
 int main(int argc, char** argv) {
 	state = initial_state();
 	
-	
+	// Global job struct queue for background jobs
+	bg_q = new_job_queue(1);
+
+	// Global pid queue handle
+	process_q = new_pid_queue(1);
+
 	/*    EXAMPLE OF USAGE, job struct, job struct q (bg_q), and pid-queue
 	 *    (process_q)
 	test.job_id = 1985;
