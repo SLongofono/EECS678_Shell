@@ -19,6 +19,8 @@ job_struct copy_job_struct(job_struct*);
 void print_pid_queue(pid_queue*);
 pid_queue copy_pid_queue(pid_queue*);
 job_queue copy_job_queue(job_queue*);
+void print_job_queue(job_queue*);
+void print_job_struct(job_struct*);
 
 // Remove this and all expansion calls to it
 /**
@@ -92,6 +94,30 @@ pid_queue copy_pid_queue(pid_queue* old_q){
 	return temp;
 }
 
+/**
+ * @brief prints job_structs
+ *
+ */
+void print_job_struct(job_struct* the_struct){
+	printf("Job #%d\n", the_struct->job_id);
+	print_pid_queue(the_struct->process_q);
+}
+
+/**
+ * @brief prints job_queues
+ *
+ */
+void print_job_queue(job_queue* the_job){
+	job_queue temp = copy_job_queue(the_job);
+	while(!is_empty_job_queue(&temp)){
+		job_struct temp2 = pop_front_job_queue(&temp);
+		print_job_struct(&temp2);
+		destroy_pid_queue(temp2.process_q);
+	}
+	destroy_job_queue(&temp);
+	return;
+}
+
 /***************************************************************************
  * Interface Functions
  ***************************************************************************/
@@ -126,6 +152,7 @@ const char* lookup_env(const char* env_var) {
 // Check the status of background jobs
 void check_jobs_bg_status() {
 
+	int jid, pid;
 	job_queue temp_job_q = new_job_queue(5);
 
 	while(!is_empty_job_queue(&bg_q)){
@@ -134,8 +161,8 @@ void check_jobs_bg_status() {
 		while(!is_empty_pid_queue(temp_q)){
 			int active = pop_front_pid_queue(temp_q);
 			int status;
-			// If any process returns a nonzero, nonnegative
-			// value, then they are still running and we know the
+			// If any given process in the job returns a positive
+			// value, then it is still running and we know the
 			// job is still active.
 			if(waitpid(active, &status, WNOHANG)>0){
 				job_dead = 0;
@@ -143,11 +170,15 @@ void check_jobs_bg_status() {
 			}
 		}
 
-		// Clean up
+		// Grab info and Clean up
 		destroy_pid_queue(temp_q);
+		job_struct temp = peek_front_job_queue(&bg_q);
+		jid = temp.job_id;
+		pid = peek_front_pid_queue(temp.process_q);
+		destroy_pid_queue(temp.process_q);
 		
 		if(job_dead){ // Discard the job
-			pop_front_job_queue(&bg_q);	
+			pop_front_job_queue(&bg_q);
 		}
 		else{  // push into temp job queue
 			push_back_job_queue(&temp_job_q, pop_front_job_queue(&bg_q));
@@ -166,12 +197,13 @@ void check_jobs_bg_status() {
 	// IMPLEMENT_ME();
 
 	// TODO: Once jobs are implemented, uncomment and fill the following line
-	// print_job_bg_complete(job_id, pid, cmd);
+	print_job_bg_complete(jid, pid, get_command_string());
 }
 
 // Prints the job id number, the process id of the first process belonging to
 // the Job, and the command string associated with this job
 void print_job(int job_id, pid_t pid, const char* cmd) {
+	printf("IN PRINT_BG\n");
 	printf("[%d]\t%8d\t%s\n", job_id, pid, cmd);
 	fflush(stdout);
 }
@@ -187,13 +219,6 @@ void print_job_bg_complete(int job_id, pid_t pid, const char* cmd) {
 	printf("Completed: \t");
 	print_job(job_id, pid, cmd);
 }
-
-/***************************************************************************
- * Helpers
- **************************************************************************/
-
-//void handle_bg_process(pid_queue bg_q, int operation
-
 
 
 /***************************************************************************
@@ -574,11 +599,11 @@ void run_script(CommandHolder* holders) {
 	for (int i = 0; (type = get_command_holder_type(holders[i])) != EOC; ++i)
 		create_process(holders[i]);
 
-	printf("In run_script, printing current process queue\n");
-	print_pid_queue(&process_q);
 
 	if (!(holders[0].flags & BACKGROUND)) {
 	
+		printf("In run_script, process for command  [ %s ]\n", get_command_string());
+		print_pid_queue(&process_q);
 		// We need to wait for each to complete, then remove it from
 		// our queue of foreground processes
 		while(!is_empty_pid_queue(&process_q)){
@@ -598,7 +623,7 @@ void run_script(CommandHolder* holders) {
 	}
 	else {
 		
-		int jid, id;
+		int jid, pid;
 		// Make a struct to represent the job
 		// get the last pid
 		job_struct the_job;
@@ -621,10 +646,13 @@ void run_script(CommandHolder* holders) {
 			push_back_pid_queue(&temp_q, pop_front_pid_queue(&process_q));
 		}
 		the_job.process_q = &temp_q;
-		id = peek_front_pid_queue(the_job.process_q);
+		pid = peek_front_pid_queue(the_job.process_q);
 		push_back_job_queue(&bg_q, the_job);
 
+		printf("In run_script, background process for command [ %s ]\n", get_command_string());
+		print_job_queue(&bg_q);
+
 		// TODO: Once jobs are implemented, uncomment and fill the following line
-		print_job_bg_start(jid, id, get_command_string());
+		print_job_bg_start(jid, pid, get_command_string());
 	}
 }
