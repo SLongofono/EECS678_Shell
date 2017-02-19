@@ -41,17 +41,14 @@ char* get_current_directory(bool* should_free) {
 	getcwd(temp, max_path);
 
 	return temp;//getcwd((char*)NULL, max_path);  //"get_current_directory()";
+
 }
 
 // Returns the value of an environment variable env_var
 const char* lookup_env(const char* env_var) {
 
-	// TODO: Lookup environment variables. This is required for parser to be able
-	// to interpret variables from the command line and display the prompt
-	// correctly
-	// HINT: This should be pretty simple
-
 	return getenv(env_var);
+
 }
 
 // Check the status of background jobs
@@ -84,6 +81,14 @@ void print_job_bg_complete(int job_id, pid_t pid, const char* cmd) {
 	printf("Completed: \t");
 	print_job(job_id, pid, cmd);
 }
+
+/***************************************************************************
+ * Helpers
+ **************************************************************************/
+
+//void handle_bg_process(pid_queue bg_q, int operation
+
+
 
 /***************************************************************************
  * Functions to process commands
@@ -176,8 +181,6 @@ void run_kill(KillCommand cmd) {
 
 // Prints the current working directory to stdout
 void run_pwd() {
-	
-	/* DONE and TESTED */
 
 	// Per instructions, we can't just print the value of $PWD
 	long max_path = fpathconf(0, _PC_PATH_MAX);
@@ -206,8 +209,21 @@ void run_pwd() {
 // Prints all background jobs currently in the job list to stdout
 void run_jobs() {
 
-	// TODO: Print background jobs
-	IMPLEMENT_ME();
+	// Need a temp queue to actually get at all the elements
+	pid_queue temp_q = new_pid_queue(10);
+
+	// Unload everything into temp q
+	while(! is_empty_pid_queue(&bg_q)){
+		push_back_pid_queue(&temp_q, (pop_front_pid_queue(&bg_q)) );	
+	}
+
+	// Reload bg_q, printing as you go
+	while(! is_empty_pid_queue(&temp_q)){
+		printf("%d\n", peek_front_pid_queue(&temp_q));
+		push_back_pid_queue(&bg_q, (pop_front_pid_queue(&temp_q)));
+	}
+
+	destroy_pid_queue(&temp_q);
 
 	// Flush the buffer before returning
 	fflush(stdout);
@@ -334,7 +350,6 @@ void create_process(CommandHolder holder) {
 
 	int pid = fork();
 	if(0 == pid){  // Child process
-		printf("\n\np_in: %d\np_out: %d\n\n", p_in, p_out);
 		if(p_in || p_out){
 			// Case input pipe only
 			if(p_in && !p_out){
@@ -351,14 +366,10 @@ void create_process(CommandHolder holder) {
 				dup2(fd[1], 1);
 			}
 		}
-		else{  // Case no use for the pipes
+		else{   // Case no use for pipes
 			close(fd[0]);
 			close(fd[1]);
-		}
-		/*
-		else{
-			close(fd[0]);
-			close(fd[1]);
+
 			if(r_in){
 				// Open the file at the given path in read only mode
 				int fp = open(holder.redirect_in, O_RDONLY);
@@ -378,7 +389,7 @@ void create_process(CommandHolder holder) {
 	
 					// open the file at the given path in
 					// read/write/create/append mode
-					int fp = open(holder.redirect_out, O_RDWR | O_CREAT | O_APPEND);
+					int fp = open(holder.redirect_out, O_RDWR | O_APPEND | O_CREAT, 0666);
 	
 					if(fp < 0){
 						perror("ERROR: could not open file for output redirection");
@@ -396,7 +407,7 @@ void create_process(CommandHolder holder) {
 					
 					// open the fail at the given path in
 					// read/write/create mode
-					int fp = open(holder.redirect_out, O_RDWR | O_CREAT);
+					int fp = open(holder.redirect_out, O_RDWR | O_CREAT, 0666 );
 	
 					if(fp < 0){
 						perror("Error: could not open file for output redirection");
@@ -413,7 +424,6 @@ void create_process(CommandHolder holder) {
 				}
 			}
 		}
-		*/
 		child_run_command(holder.cmd); // This should be done in the child branch of a fork
 		exit(0);
 	}// end child process block
@@ -421,10 +431,10 @@ void create_process(CommandHolder holder) {
 		parent_run_command(holder.cmd); // This should be done in the parent branch of
 			                        // a fork
 	}
+	// Add the child to the active foreground process queue
+	push_back_pid_queue(&process_q, pid);
 	close(fd[0]);
 	close(fd[1]);
-	int status;
-	waitpid(pid, &status, 0);
 }
 
 // Run a list of commands
@@ -444,20 +454,39 @@ void run_script(CommandHolder* holders) {
 	CommandType type;
 
 	// Run all commands in the `holder` array
+	// This generates all the processes and connects pipes/redirs
+	// appropriately, and adds pids to the foreground process queue
 	for (int i = 0; (type = get_command_holder_type(holders[i])) != EOC; ++i)
 		create_process(holders[i]);
 
 	if (!(holders[0].flags & BACKGROUND)) {
-		// Not a background Job
-		// TODO: Wait for all processes under the job to complete
-		IMPLEMENT_ME();
+
+		// We need to wait for each to complete, then remove it from
+		// our queue of foreground processes
+		while(!is_empty_pid_queue(&process_q)){
+
+			int active, status;
+			// Grab the first item (presumably the oldest if we
+			// always add to the back)
+			active = pop_front_pid_queue(&process_q);
+
+			// Block until the associated process exits
+			waitpid(active, &status, 0);
+
+			// Do we want to error check here, or is that the
+			// user's responsibility to give good input?			
+		}
 	}
 	else {
 		// A background job.
 		// TODO: Push the new job to the job queue
-		IMPLEMENT_ME();
+		
+		//IMPLEMENT_ME();
+		//int pid = pop_front_pid_queue(&process_q);
+		//push_front_pid_queue(&bg_q, pid);
+
 
 		// TODO: Once jobs are implemented, uncomment and fill the following line
-		// print_job_bg_start(job_id, pid, cmd);
+		//print_job_bg_start(job_id, pid, holders[0].cmd);
 	}
 }

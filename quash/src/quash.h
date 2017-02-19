@@ -14,7 +14,11 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include "execute.h"
+#include "pid_queue.h"
 
+
+pid_queue process_q;
+pid_queue bg_q;
 /**
  * @brief Holds information about the state and environment Quash is running in
  */
