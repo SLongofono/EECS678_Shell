@@ -490,10 +490,6 @@ void create_process(CommandHolder holder, int* pipe1, int* pipe2, int position) 
 	//int fd[2];
 	
 
-	printf("MAKING PIPES\n");
-	pipe(pipe1);
-	pipe(pipe2);
-
 	printf("PIPE1[0]: %d\nPIPE1[1]: %d\nPIPE2[0]: %d\nPIPE2[1]: %d\n", pipe1[0], pipe1[1], pipe2[0], pipe2[1]);
 
 	int pid = fork();
@@ -507,15 +503,15 @@ void create_process(CommandHolder holder, int* pipe1, int* pipe2, int position) 
 				printf("Connecting read end of pipe at fd%d to stdin\n", pipe1[0]);
 				dup2(pipe1[0], STDIN_FILENO);
 				close(pipe1[1]);
-				close(pipe2[0]);
-				close(pipe2[1]);
+				//close(pipe2[0]);
+				//close(pipe2[1]);
 			}
 			else if(p_out && !p_in){  // Case output pipe only
 				printf("Connecting write end of pipe at fd%d to stdout\n", pipe2[1]);
 				dup2(pipe2[1], STDOUT_FILENO);
 				close(pipe2[0]);
-				close(pipe1[0]);
-				close(pipe1[1]);
+				//close(pipe1[0]);
+				//close(pipe1[1]);
 
 			}
 			else{ // Case both input and output pip
@@ -527,10 +523,10 @@ void create_process(CommandHolder holder, int* pipe1, int* pipe2, int position) 
 			}
 		}
 		else{   // Case no use for pipes
-			close(pipe1[0]);
-			close(pipe1[1]);
-			close(pipe2[0]);
-			close(pipe2[1]);
+			//close(pipe1[0]);
+			//close(pipe1[1]);
+			//close(pipe2[0]);
+			//close(pipe2[1]);
 
 			if(r_in){
 				// Open the file at the given path in read only mode
@@ -595,10 +591,10 @@ void create_process(CommandHolder holder, int* pipe1, int* pipe2, int position) 
 
 	// Add the child to the active foreground process queue
 	push_back_pid_queue(&process_q, pid);
-	close(pipe1[0]);
-	close(pipe1[1]);
-	close(pipe2[0]);
-	close(pipe2[1]);
+	//close(pipe1[0]);
+	//close(pipe1[1]);
+	//close(pipe2[0]);
+	//close(pipe2[1]);
 }
 
 // Run a list of commands
@@ -654,16 +650,31 @@ void run_script(CommandHolder* holders) {
 	// appropriately, and adds pids to the foreground process queue
 	for (int i = 0; (type = get_command_holder_type(holders[i])) != EOC; ++i){
 		if(0 == position){ // Case at beginning, need to pass a dummy for reading pipe
-			
+			pipe(dummy);
+			pipe(pipes[position]);
 			create_process(holders[i], dummy, pipes[position], 0);
+			close(dummy[0]);
+			close(dummy[1]);
+			close(pipes[position][0]);
+			close(pipes[position][1]);
 		}
 		else if((num_processes-1) == position){  // Case at end, need a dummy for write pipe
-		
+			pipe(pipes[position-1]);
+			pipe(dummy);
 			create_process(holders[i], pipes[position-1], dummy, 2);
+			close(dummy[0]);
+			close(dummy[1]);
+			close(pipes[position-1][0]);		
+			close(pipes[position-1][1]);	
 		}
 		else{ // Case somewhere in the middle
-			
+			pipe(pipes[position+1]);
+			pipe(pipes[position-1]);
 			create_process(holders[i], pipes[position-1], pipes[position+1], 1);
+			close(pipes[position-1][0]);
+			close(pipes[position-1][1]);
+			close(pipes[position+1][0]);
+			close(pipes[position+1][1]);
 		}
 
 		// update the position
