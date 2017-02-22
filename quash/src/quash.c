@@ -109,12 +109,10 @@ void end_main_loop() {
  */
 int main(int argc, char** argv) {
 	state = initial_state();
-	
-	// Global job struct queue for background jobs
+
+	process_q = new_pid_queue(1);
 	bg_q = new_job_queue(1);
 
-	// Global pid queue handle
-	process_q = new_pid_queue(1);
 
 	/*    EXAMPLE OF USAGE, job struct, job struct q (bg_q), and pid-queue
 	 *    (process_q)
@@ -157,8 +155,9 @@ int main(int argc, char** argv) {
 
 		if (script != NULL)
 			run_script(script);
-
+		printf("IN QUASH, DESTROYING MEMORY...\n");
 		destroy_memory_pool();
+		printf("DONE DESTROYING MEMORY...\n");
 	}
 
 	return EXIT_SUCCESS;

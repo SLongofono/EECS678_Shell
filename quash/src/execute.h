@@ -9,8 +9,9 @@
 
 #include <stdbool.h>
 #include <unistd.h>
-
+#include <sys/types.h>
 #include "command.h"
+
 
 /**
  * @brief Function to get environment variable values
