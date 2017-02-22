@@ -504,14 +504,14 @@ void create_process(CommandHolder holder, int* pipe1, int* pipe2, int position) 
 			
 			// Case input pipe only
 			if(p_in && !p_out){
-				printf("Connecting read end of pipe to stdin\n");
+				printf("Connecting read end of pipe at fd%d to stdin\n", pipe1[0]);
 				dup2(pipe1[0], STDIN_FILENO);
 				close(pipe1[1]);
 				close(pipe2[0]);
 				close(pipe2[1]);
 			}
 			else if(p_out && !p_in){  // Case output pipe only
-				printf("Connecting write end of pipe to stdout\n");
+				printf("Connecting write end of pipe at fd%d to stdout\n", pipe2[1]);
 				dup2(pipe2[1], STDOUT_FILENO);
 				close(pipe2[0]);
 				close(pipe1[0]);
@@ -519,7 +519,7 @@ void create_process(CommandHolder holder, int* pipe1, int* pipe2, int position) 
 
 			}
 			else{ // Case both input and output pip
-				printf("Connecting read end of pipe to stdin and write end of pipe to stdout\n");
+				printf("Connecting read end of pipe at fd %d to stdin and write end of pipe at fd%d to stdout\n", pipe1[0], pipe2[1]);
 				dup2(pipe1[0], STDIN_FILENO);
 				dup2(pipe2[1], STDOUT_FILENO);
 				close(pipe1[1]);
@@ -654,12 +654,15 @@ void run_script(CommandHolder* holders) {
 	// appropriately, and adds pids to the foreground process queue
 	for (int i = 0; (type = get_command_holder_type(holders[i])) != EOC; ++i){
 		if(0 == position){ // Case at beginning, need to pass a dummy for reading pipe
+			
 			create_process(holders[i], dummy, pipes[position], 0);
 		}
 		else if((num_processes-1) == position){  // Case at end, need a dummy for write pipe
+		
 			create_process(holders[i], pipes[position-1], dummy, 2);
 		}
 		else{ // Case somewhere in the middle
+			
 			create_process(holders[i], pipes[position-1], pipes[position+1], 1);
 		}
 
