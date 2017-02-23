@@ -330,8 +330,22 @@ void run_pwd() {
 }
 
 // Prints all background jobs currently in the job list to stdout
+// USING THE FORMAT [job_id]<tab>#PID#<tab>commandstring
 void run_jobs() {
-	apply_job_queue(&bg_q, print_job_id);
+	int num_jobs = length_job_queue(&bg_q);
+	for(int i = 0; i<num_jobs; i++){
+		// Grab the front
+		job_struct temp = pop_front_job_queue(&bg_q);
+
+		printf("[%d]\t#PID#\t%s\n", temp.job_id, peek_front_pid_queue(&temp.process_q), temp.command);
+
+		// Put job back in place
+		push_back_job_queue(&bg_q, temp);
+	}
+	// hidden in the bowels of the documentation, there is a helpful message
+	// saying that we must use the above format
+	
+//apply_job_queue(&bg_q, print_job_id);
 
 #if 0
 	// need a temp for the job queue (why on earth does this queue not have a
