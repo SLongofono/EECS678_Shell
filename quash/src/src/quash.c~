@@ -110,6 +110,14 @@ void end_main_loop() {
 int main(int argc, char** argv) {
   state = initial_state();
 
+	//pipe1 = (int*)malloc(2*sizeof(int));
+
+	// Global job struct queue for background jobs
+	bg_q = new_job_queue(1);
+
+	// Global pid queue handle
+	process_q = new_pid_queue(1);
+
   if (is_tty()) {
     puts("Welcome to Quash!");
     puts("Type \"exit\" or \"quit\" to quit");
@@ -133,8 +141,6 @@ int main(int argc, char** argv) {
 
     destroy_memory_pool();
   }
-
-  free_background_queue();
 
   return EXIT_SUCCESS;
 }

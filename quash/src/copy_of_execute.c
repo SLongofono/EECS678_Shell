@@ -18,54 +18,10 @@
  * @brief Note calls to any function that requires implementation
  */
 #define IMPLEMENT_ME()                                                  \
-	fprintf(stderr, "IMPLEMENT ME: %s(line %d): %s()\n", __FILE__, __LINE__, __FUNCTION__)
+  fprintf(stderr, "IMPLEMENT ME: %s(line %d): %s()\n", __FILE__, __LINE__, __FUNCTION__)
 
-
-// Global job queue handle
 static job_queue bg_q;
-
-// Only initialize it once
 static int first_time = true;
-
-
-/*
- * @brief Frees memory for the background queue on exit
- *
- * signalled upstream from quash.c on exit condition
- *
- */
-void free_background_queue(){
-	
-	assert(is_empty_job_queue(&bg_q));
-	
-	if(first_time != true){
-		destroy_job_queue(&bg_q);
-	}
-}
-
-
-/*
- * @brief Destructor for job_structs
- */
-void destroy_struct(job_struct job){
-	free(job.command);
-	destroy_pid_queue(&job.process_q);
-}
-
-/*
- * @brief Prints pids in pid_queues
- */
-void print_pid_values(int q){
-	printf("%d\n", q);
-}
-
-/*
- * @brief Prints jobs in job structs
- */
-void print_job_id(job_struct job){
-	printf("%d\n", job.job_id);
-}
-
 
 /***************************************************************************
  * Interface Functions
@@ -101,14 +57,18 @@ const char* lookup_env(const char* env_var) {
 void check_jobs_bg_status() {
 	int active;
 	int status;
-        job_struct temp_job_struct;// = new_job_queue(5);
+	job_struct temp_job_struct;// = new_job_queue(5);
 
 	while(!is_empty_job_queue(&bg_q)){
 		temp_job_struct = pop_front_job_queue(&bg_q);
+		printf("Checking background job: %d\n", temp_job_struct.job_id);
 		pid_queue *temp_q = &(temp_job_struct.process_q);
+		printf("Checking processes...\n");
 		while(!is_empty_pid_queue(temp_q)){
 			active = pop_front_pid_queue(temp_q);
-			// If any given process in the job returns a zero
+			
+			printf("Checking process pid %d...\n", active);
+			// If any given process in the job returns a positive
 			// value, then it is still running and we know the
 			// job is still active.
 			if(waitpid(active, &status, WNOHANG)==0) {
@@ -117,13 +77,10 @@ void check_jobs_bg_status() {
 				return;
 			}
 		}
-		// Print completion message
-	 	print_job_bg_complete(temp_job_struct.job_id, active, temp_job_struct.command);
-		
-		// Clean up the job
-		destroy_pid_queue(&temp_job_struct.process_q);
-		free(temp_job_struct.command);
+
+   		print_job_bg_complete(temp_job_struct.job_id, active, temp_job_struct.command);
 	}
+
 #if 0
 
 		printf("job_dead is %d, wrapping up check bg status...\n", job_dead);
@@ -161,33 +118,33 @@ void check_jobs_bg_status() {
 
 	
 // Oriignal code	
-	// TODO: Check on the statuses of all processes belonging to all background
-	// jobs. This function should remove jobs from the jobs queue once all
-	// processes belonging to a job have completed.
-	//IMPLEMENT_ME();
+  // TODO: Check on the statuses of all processes belonging to all background
+  // jobs. This function should remove jobs from the jobs queue once all
+  // processes belonging to a job have completed.
+  //IMPLEMENT_ME();
 
-	// TODO: Once jobs are implemented, uncomment and fill the following line
-	// print_job_bg_complete(job_id, pid, cmd);
+  // TODO: Once jobs are implemented, uncomment and fill the following line
+  // print_job_bg_complete(job_id, pid, cmd);
 #endif
 }
 
 // Prints the job id number, the process id of the first process belonging to
 // the Job, and the command string associated with this job
 void print_job(int job_id, pid_t pid, const char* cmd) {
-	printf("[%d]\t%8d\t%s\n", job_id, pid, cmd);
-	fflush(stdout);
+  printf("[%d]\t%8d\t%s\n", job_id, pid, cmd);
+  fflush(stdout);
 }
 
 // Prints a start up message for background processes
 void print_job_bg_start(int job_id, pid_t pid, const char* cmd) {
-	printf("Background job started: ");
-	print_job(job_id, pid, cmd);
+  printf("Background job started: ");
+  print_job(job_id, pid, cmd);
 }
 
 // Prints a completion message followed by the print job
 void print_job_bg_complete(int job_id, pid_t pid, const char* cmd) {
-	printf("Completed: \t");
-	print_job(job_id, pid, cmd);
+  printf("Completed: \t");
+  print_job(job_id, pid, cmd);
 }
 
 /***************************************************************************
@@ -266,15 +223,15 @@ void run_cd(CDCommand cmd) {
 
 // Sends a signal to all processes contained in a job
 void run_kill(KillCommand cmd) {
-	int signal = cmd.sig;
-	int job_id = cmd.job;
+  int signal = cmd.sig;
+  int job_id = cmd.job;
 
-	// TODO: Remove warning silencers
-	(void) signal; // Silence unused variable warning
-	(void) job_id; // Silence unused variable warning
+  // TODO: Remove warning silencers
+  (void) signal; // Silence unused variable warning
+  (void) job_id; // Silence unused variable warning
 
-	// TODO: Kill all processes associated with a background job
-	IMPLEMENT_ME();
+  // TODO: Kill all processes associated with a background job
+  IMPLEMENT_ME();
 }
 
 
@@ -307,12 +264,10 @@ void run_pwd() {
 
 // Prints all background jobs currently in the job list to stdout
 void run_jobs() {
-	apply_job_queue(&bg_q, print_job_id);
 
-#if 0
-	// need a temp for the job queue (why on earth does this queue not have a
+  	// need a temp for the job queue (why on earth does this queue not have a
 	// traversal method?)
-	job_queue temp_job_q = new_destructable_job_queue(1, &destroy_struct);
+	job_queue temp_job_q = new_job_queue(5);
 
 	// Unload everything into temp_job_q, printing as you go
 	while(! is_empty_job_queue(&bg_q)){
@@ -336,13 +291,12 @@ void run_jobs() {
 	// Flush the buffer before returning
 	fflush(stdout);
 
-	// Original  
-	// TODO: Print background jobs
-	//IMPLEMENT_ME();
+  // Original  
+  // TODO: Print background jobs
+  //IMPLEMENT_ME();
 
-	// Flush the buffer before returning
-	//fflush(stdout);
-#endif
+  // Flush the buffer before returning
+  //fflush(stdout);
 }
 
 /***************************************************************************
@@ -361,35 +315,35 @@ void run_jobs() {
  * @sa Command
  */
 void child_run_command(Command cmd) {
-	CommandType type = get_command_type(cmd);
+  CommandType type = get_command_type(cmd);
 
-	switch (type) {
-	case GENERIC:
-	  run_generic(cmd.generic);
-	  break;
+  switch (type) {
+  case GENERIC:
+    run_generic(cmd.generic);
+    break;
 
-	case ECHO:
-	  run_echo(cmd.echo);
-	  break;
+  case ECHO:
+    run_echo(cmd.echo);
+    break;
 
-	case PWD:
-	  run_pwd();
-	  break;
+  case PWD:
+    run_pwd();
+    break;
 
-	case JOBS:
-	  run_jobs();
-	  break;
+  case JOBS:
+    run_jobs();
+    break;
 
-	case EXPORT:
-	case CD:
-	case KILL:
-	case EXIT:
-	case EOC:
-	  break;
+  case EXPORT:
+  case CD:
+  case KILL:
+  case EXIT:
+  case EOC:
+    break;
 
-	default:
-	  fprintf(stderr, "Unknown command type: %d\n", type);
-	}
+  default:
+    fprintf(stderr, "Unknown command type: %d\n", type);
+  }
 }
 
 /**
@@ -404,32 +358,32 @@ void child_run_command(Command cmd) {
  * @sa Command
  */
 void parent_run_command(Command cmd) {
-	CommandType type = get_command_type(cmd);
+  CommandType type = get_command_type(cmd);
 
-	switch (type) {
-	case EXPORT:
-	  run_export(cmd.export);
-	  break;
+  switch (type) {
+  case EXPORT:
+    run_export(cmd.export);
+    break;
 
-	case CD:
-	  run_cd(cmd.cd);
-	  break;
+  case CD:
+    run_cd(cmd.cd);
+    break;
 
-	case KILL:
-	  run_kill(cmd.kill);
-	  break;
+  case KILL:
+    run_kill(cmd.kill);
+    break;
 
-	case GENERIC:
-	case ECHO:
-	case PWD:
-	case JOBS:
-	case EXIT:
-	case EOC:
-	  break;
+  case GENERIC:
+  case ECHO:
+  case PWD:
+  case JOBS:
+  case EXIT:
+  case EOC:
+    break;
 
-	default:
-	  fprintf(stderr, "Unknown command type: %d\n", type);
-	}
+  default:
+    fprintf(stderr, "Unknown command type: %d\n", type);
+  }
 }
 
 /**
@@ -554,46 +508,42 @@ void create_process(CommandHolder holder, job_struct *job) {
 void run_script(CommandHolder* holders) {
 
 if (first_time == true) {
-	bg_q = new_destructable_job_queue (1, &destroy_struct);
+	bg_q = new_job_queue (1);
 	first_time = false;
 }
 
 	// Set up pipe from global int*
 	pipe(pipe1);
 
-	if (holders == NULL)
-	  return;
+  if (holders == NULL)
+    return;
 
-	check_jobs_bg_status();
+  check_jobs_bg_status();
 
-	if (get_command_holder_type(holders[0]) == EXIT &&
-	    get_command_holder_type(holders[1]) == EOC) {
-	  end_main_loop();
-	  return;
-	}
+  if (get_command_holder_type(holders[0]) == EXIT &&
+      get_command_holder_type(holders[1]) == EOC) {
+    end_main_loop();
+    return;
+  }
 
-	job_struct the_job;
+  job_struct the_job;
 
-	// Global pid queue handle
-	the_job.process_q = new_pid_queue(1);
+  // Global pid queue handle
+  the_job.process_q = new_pid_queue(1);
 
-	CommandType type;
+  CommandType type;
 
-	// Run all commands in the `holder` array
-	for (int i = 0; (type = get_command_holder_type(holders[i])) != EOC; ++i)
-	  create_process(holders[i], &the_job);
+  // Run all commands in the `holder` array
+  for (int i = 0; (type = get_command_holder_type(holders[i])) != EOC; ++i)
+    create_process(holders[i], &the_job);
 
 
-	// Wrap up pipes now that we are done with processes
-	close(pipe1[0]);
-	close(pipe1[1]);
+  // Wrap up pipes now that we are done with processes
+  close(pipe1[0]);
+  close(pipe1[1]);
 
-	if (!(holders[0].flags & BACKGROUND)) {
-	  	
-	//	printf("Created some jobs:\n");
-	//	apply_pid_queue(&the_job.process_q, print_pid_values);
-		
-		// We need to wait for each to complete, then remove it from
+  if (!(holders[0].flags & BACKGROUND)) {
+    		// We need to wait for each to complete, then remove it from
 		// our queue of foreground processes
 		while(false == is_empty_pid_queue(&the_job.process_q)){
 
@@ -604,12 +554,10 @@ if (first_time == true) {
 
 			// Block until the associated process exits
 			waitpid(active, &status, 0);
-		}
-		// Clean up process queue
-		destroy_pid_queue(&the_job.process_q);
-	}
-	else {
-	 	int jid, pid;
+			}
+  }
+  else {
+   	int jid, pid;
 		// Make a struct to represent the job
 		// get the last pid
 
@@ -633,6 +581,7 @@ if (first_time == true) {
 
 		push_back_job_queue(&bg_q, the_job);
 
+		// TODO: Once jobs are implemented, uncomment and fill the following line
 		print_job_bg_start(jid, pid, get_command_string());
-	}
+  }
 }
