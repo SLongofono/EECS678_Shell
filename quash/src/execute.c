@@ -274,36 +274,31 @@ void run_kill(KillCommand cmd) {
 	(void) job_id; // Silence unused variable warning
 
 	// TODO: Kill all processes associated with a background job
-	IMPLEMENT_ME();
-#if 0
-	job_queue temp = new_job_queue(1);
-	while(!is_empty_job_queue(&bg_q)){
-		push_back_job_queue(&temp, pop_front_job_queue(&bg_q));
-	}
-	while(!is_empty_job_queue(&temp)){
-		if(job_id == peek_front_job_queue(&temp).job_id){
-			// Deal with the ridiculous data type
-			job_struct temp_job_struct = pop_front_job_queue(&temp);
-			pid_queue temp_process_q = new_pid_queue(1);
-			while(!is_empty_pid_queue(&temp_job_struct.process_q)){
-				// Send the signal to the process
-				push_back_pid_queue(&temp_process_q, pop_front_pid_queue(&temp_job_struct.process_q));
-				kill(peek_back_pid_queue(&temp_job_struct.process_q), signal);
+	//IMPLEMENT_ME();
+
+	int num_jobs = length_job_queue(&bg_q);
+	for(int i = 0; i<num_jobs; i++){
+		// Grab the front
+		job_struct temp = pop_front_job_queue(&bg_q);
+		
+		if(job_id == temp.job_id){
+			size_t num_pids = length_pid_queue(&temp.process_q);
+			
+			for(int j = 0; j<num_pids; ++j){
+				// Grab pid and send signal
+				int pid = pop_front_pid_queue(&temp.process_q);
+				kill(pid, signal);
+
+				// Put it back in order
+				push_back_pid_queue(&temp.process_q, pid);
 			}
 
-			// Return pids to the job struct
-			while(!is_empty_pid_queue(&temp_process_q)){
-				push_back_pid_queue(&temp_job_struct.process_q, pop_front_pid_queue(&temp_process_q));	
-			}
+		}
 
-			// Return job to global queue
-			push_back_job_queue(&bg_q, temp_job_struct);
-		}
-		else{
-			push_back_job_queue(&bg_q, pop_front_job_queue(&temp));	
-		}
+		// Put job back in place
+		push_back_job_queue(&bg_q, temp);
 	}
-#endif
+
 }
 
 
