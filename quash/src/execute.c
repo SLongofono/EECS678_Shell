@@ -275,6 +275,35 @@ void run_kill(KillCommand cmd) {
 
 	// TODO: Kill all processes associated with a background job
 	IMPLEMENT_ME();
+#if 0
+	job_queue temp = new_job_queue(1);
+	while(!is_empty_job_queue(&bg_q)){
+		push_back_job_queue(&temp, pop_front_job_queue(&bg_q));
+	}
+	while(!is_empty_job_queue(&temp)){
+		if(job_id == peek_front_job_queue(&temp).job_id){
+			// Deal with the ridiculous data type
+			job_struct temp_job_struct = pop_front_job_queue(&temp);
+			pid_queue temp_process_q = new_pid_queue(1);
+			while(!is_empty_pid_queue(&temp_job_struct.process_q)){
+				// Send the signal to the process
+				push_back_pid_queue(&temp_process_q, pop_front_pid_queue(&temp_job_struct.process_q));
+				kill(peek_back_pid_queue(&temp_job_struct.process_q), signal);
+			}
+
+			// Return pids to the job struct
+			while(!is_empty_pid_queue(&temp_process_q)){
+				push_back_pid_queue(&temp_job_struct.process_q, pop_front_pid_queue(&temp_process_q));	
+			}
+
+			// Return job to global queue
+			push_back_job_queue(&bg_q, temp_job_struct);
+		}
+		else{
+			push_back_job_queue(&bg_q, pop_front_job_queue(&temp));	
+		}
+	}
+#endif
 }
 
 
@@ -589,7 +618,7 @@ if (first_time == true) {
 	close(pipe1[1]);
 
 	if (!(holders[0].flags & BACKGROUND)) {
-	  	
+
 	//	printf("Created some jobs:\n");
 	//	apply_pid_queue(&the_job.process_q, print_pid_values);
 		
@@ -633,6 +662,7 @@ if (first_time == true) {
 
 		push_back_job_queue(&bg_q, the_job);
 
-		print_job_bg_start(jid, pid, get_command_string());
+		// Causes memory leak
+		print_job_bg_start(jid, pid, the_job.command);
 	}
 }
