@@ -134,6 +134,8 @@ int main(int argc, char** argv) {
     destroy_memory_pool();
   }
 
+  // There is no way to know downstream that we are done, so we must use a
+  // function to signal the cleanup
   free_background_queue();
 
   return EXIT_SUCCESS;
