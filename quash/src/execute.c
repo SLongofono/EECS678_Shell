@@ -540,7 +540,19 @@ void create_process(CommandHolder holder, job_struct *job) {
 				
 				// open the fail at the given path in
 				// write/create mode (overwrite if exists)
-				int fp = open(holder.redirect_out, O_WRONLY | O_CREAT, 0777 | O_TRUNC);
+
+				/* ***NOTE***
+				 *
+				 *  The mode needs to come at the end,
+				 *  otherwise the options will be split up at
+				 *  the comma and everything thereafter will
+				 *  be ignored.  This was a stupid bug that
+				 *  caused me a lot of aggravation, mostly
+				 *  because there was no good way to search
+				 *  for the error.
+				 *
+				 */
+				int fp = open(holder.redirect_out, O_WRONLY | O_TRUNC | O_CREAT, 0777);
 
 				if(fp < 0){
 					perror("Error: could not open file for output redirection");
