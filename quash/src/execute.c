@@ -110,6 +110,12 @@ void check_jobs_bg_status() {
 			// value, then it is still running and we know the
 			// job is still active.
 			if(waitpid(active, &status, WNOHANG)==0) {
+
+				// If we make it here, then at least one
+				// process is still active (status 0 indicates
+				// unchanged from initial running status).
+				// Put the pid back where it was and the job
+				// struct back where it was
 				push_front_pid_queue(temp_q, active);
 				push_front_job_queue(&bg_q, temp_job_struct);
 				return;
@@ -603,13 +609,13 @@ void create_process(CommandHolder holder, job_struct *job) {
 		//
 		out_pipe = (out_pipe + 1) % 2;
 		in_pipe = (in_pipe + 1) % 2;
+		
+		// Add the child to the active foreground process queue
+		push_back_pid_queue(&(job->process_q), pid);
 
 		// Guess what I do
 		parent_run_command(holder.cmd);
 	}
-
-	// Add the child to the active foreground process queue
-	push_back_pid_queue(&(job->process_q), pid);
 
 }
 
