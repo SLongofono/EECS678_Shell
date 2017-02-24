@@ -307,16 +307,13 @@ void run_pwd() {
 	// Per instructions, we can't just print the value of $PWD
 	long max_path = fpathconf(0, _PC_PATH_MAX);
 	
+	// Rule-of-thumb value for nix systems
 	if(0 > max_path){
 		max_path =4096;	
 	}
 
 	char *temp = malloc(max_path);
-	//char *temp;
 
-	// Uses Malloc
-	//temp = get_current_dir_name();
-	
 	getcwd(temp, max_path);
 
 	printf("%s\n", temp);
