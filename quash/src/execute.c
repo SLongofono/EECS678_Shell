@@ -27,6 +27,11 @@ static job_queue bg_q;
 // Only initialize it once
 static int first_time = true;
 
+// Global pipe handles and tracking
+static int env_pipes[2][2];
+static int in_pipe = -1;
+static int out_pipe = 0;
+
 
 /*
  * @brief Frees memory for the background queue on exit
@@ -337,7 +342,7 @@ void run_jobs() {
 		// Grab the front
 		job_struct temp = pop_front_job_queue(&bg_q);
 
-		printf("[%d]\t#PID#\t%s\n", temp.job_id, peek_front_pid_queue(&temp.process_q), temp.command);
+		printf("[%d]\t#PID#\t%s\n", temp.job_id, temp.command);
 
 		// Put job back in place
 		push_back_job_queue(&bg_q, temp);
@@ -495,30 +500,33 @@ void create_process(CommandHolder holder, job_struct *job) {
 	bool r_app = holder.flags & REDIRECT_APPEND; // This can only be true if r_out
 						     // is true
 						     //
-	//int fd[2];
-	//pipe(fd);	
-	
-	
+	// Create only one pipe each time.  Start with the out pipe.  Since we
+	// can depend on the parser to never have p_out true on the final
+	// process in a pipe, we know we will always have exactly n-1 pipes
+	// for n processes.
+	if(p_out){
+		pipe(env_pipes[out_pipe]);	
+	}	
 
 	int pid = fork();
 	if(0 == pid){  // Child process
 		if(p_in || p_out){
-			// Case input pipe only
-			if(p_in && !p_out){
-				dup2(pipe1[0], 0);
-				close(pipe1[1]);
-			}
-			else if(p_out && !p_in){  // Case output pipe only
-				dup2(pipe1[1], 1);
-				close(pipe1[0]);
 
+			// If p_in, we need to connect the read end of the
+			// global input pipe.  The values of the indices are
+			// updated at the end of this function
+			if(p_in){
+				dup2(env_pipes[in_pipe][0], 0);
+				close(env_pipes[in_pipe][1]);
 			}
-			
-			// This breaks everything because only one pipe implemented
-			//else{ // Case both input and output pip
-			//	dup2(pipe1[0], 0);
-			//	dup2(pipe1[1], 1);
-			//}
+
+			// If p_out, we need to connect the write end of the
+			// global output pipe.  The values of the indices are
+			// updated at the end of this function
+			if(p_out){
+				dup2(env_pipes[out_pipe][1],1);
+				close(env_pipes[out_pipe][0]);
+			}
 		}
 		else{
 
@@ -579,6 +587,32 @@ void create_process(CommandHolder holder, job_struct *job) {
 		exit(0);
 	}// end child process block
 	else{
+		// Since we only create "out" pipes in parent, we need only
+		// close the out pipe write end
+		if(p_out){
+			close(env_pipes[out_pipe][1]);	
+		}
+
+		// This is some hackery passed along by our TA.  It simply
+		// alternates them between 0 and 1 for use in the global pipe
+		// handles.  The assumption is that proc 1 will complete and
+		// be done with pipe 0 in time for proc 3 to use it, as
+		// enforced by the fact that each process will block until
+		// data arrives from the previous process.
+		//
+		// Stage 1:
+		//		__________		__________
+		// proc 1	__pipe 0__	proc 2	__pipe 1__
+		//
+		//		__________		__________
+		// proc 3 write	__pipe 0__	proc 2	__pipe 1__ proc 3 read
+		//
+		// and so on...
+		//
+		//
+		out_pipe = (out_pipe + 1) % 2;
+		in_pipe = (in_pipe + 1) % 2;
+
 		parent_run_command(holder.cmd); // This should be done in the parent branch of
 			                        // a fork
 	}
@@ -591,13 +625,12 @@ void create_process(CommandHolder holder, job_struct *job) {
 // Run a list of commands
 void run_script(CommandHolder* holders) {
 
-if (first_time == true) {
-	bg_q = new_destructable_job_queue (1, &destroy_struct);
-	first_time = false;
-}
-
-	// Set up pipe from global int*
-	pipe(pipe1);
+	// We only want to instantiate the bg_q once.  This is better encapsulated
+	// than the previous implementation with the globals in quash.c
+	if (first_time == true) {
+		bg_q = new_destructable_job_queue (1, &destroy_struct);
+		first_time = false;
+	}
 
 	if (holders == NULL)
 	  return;
@@ -618,18 +651,12 @@ if (first_time == true) {
 	CommandType type;
 
 	// Run all commands in the `holder` array
-	for (int i = 0; (type = get_command_holder_type(holders[i])) != EOC; ++i)
-	  create_process(holders[i], &the_job);
+	for (int i = 0; (type = get_command_holder_type(holders[i])) != EOC; ++i){
+		create_process(holders[i], &the_job);
+	}
 
-
-	// Wrap up pipes now that we are done with processes
-	close(pipe1[0]);
-	close(pipe1[1]);
-
+	// Foreground jobs should be completed immediately
 	if (!(holders[0].flags & BACKGROUND)) {
-
-	//	printf("Created some jobs:\n");
-	//	apply_pid_queue(&the_job.process_q, print_pid_values);
 		
 		// We need to wait for each to complete, then remove it from
 		// our queue of foreground processes
@@ -674,4 +701,5 @@ if (first_time == true) {
 		// Causes memory leak
 		print_job_bg_start(jid, pid, the_job.command);
 	}
+
 }

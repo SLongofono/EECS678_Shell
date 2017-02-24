@@ -18,7 +18,6 @@
 #include "job_queue.h"
 #include "job_struct.h"
 
-int pipe1[2];
 /**
  * @brief Holds information about the state and environment Quash is running in
  */
