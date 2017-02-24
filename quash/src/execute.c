@@ -97,14 +97,24 @@ const char* lookup_env(const char* env_var) {
 
 // Check the status of background jobs
 void check_jobs_bg_status() {
-	int active;
-	int status;
+	int active, num_pids, num_jobs;
+	int status, still_running=0;
         job_struct temp_job_struct;// = new_job_queue(5);
 
-	while(!is_empty_job_queue(&bg_q)){
+	num_jobs = length_job_queue(&bg_q);
+
+	if(0 == num_jobs){
+		return;	
+	}
+
+	for(int k = 0; k<num_jobs; k++){
+	//while(!is_empty_job_queue(&bg_q)){
 		temp_job_struct = pop_front_job_queue(&bg_q);
 		pid_queue *temp_q = &(temp_job_struct.process_q);
-		while(!is_empty_pid_queue(temp_q)){
+		num_pids = length_pid_queue(temp_q);
+		
+		for(int i = 0; i<num_pids; ++i){
+		//while(!is_empty_pid_queue(temp_q)){
 			active = pop_front_pid_queue(temp_q);
 			// If any given process in the job returns a zero
 			// value, then it is still running and we know the
@@ -116,17 +126,26 @@ void check_jobs_bg_status() {
 				// unchanged from initial running status).
 				// Put the pid back where it was and the job
 				// struct back where it was
-				push_front_pid_queue(temp_q, active);
-				push_front_job_queue(&bg_q, temp_job_struct);
-				return;
+				still_running = 1;
+				push_back_pid_queue(temp_q, active);
+				break;
+			}
+			else{
+				still_running = 0;	
 			}
 		}
+
 		// Print completion message
-	 	print_job_bg_complete(temp_job_struct.job_id, active, temp_job_struct.command);
-		
-		// Clean up the job
-		destroy_pid_queue(&temp_job_struct.process_q);
-		free(temp_job_struct.command);
+	 	if(!still_running){
+			print_job_bg_complete(temp_job_struct.job_id, active, temp_job_struct.command);
+			// Clean up the job
+			destroy_pid_queue(&temp_job_struct.process_q);
+			free(temp_job_struct.command);
+		}
+		else{
+			push_back_job_queue(&bg_q, temp_job_struct);
+		}
+
 	}
 #if 0
 
