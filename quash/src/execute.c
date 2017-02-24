@@ -97,9 +97,9 @@ const char* lookup_env(const char* env_var) {
 
 // Check the status of background jobs
 void check_jobs_bg_status() {
-	int active, num_pids, num_jobs;
-	int status, still_running=0;
-        job_struct temp_job_struct;// = new_job_queue(5);
+
+	int active, num_pids, num_jobs, status, still_running = 0;
+        job_struct temp_job_struct;
 
 	num_jobs = length_job_queue(&bg_q);
 
@@ -108,14 +108,15 @@ void check_jobs_bg_status() {
 	}
 
 	for(int k = 0; k<num_jobs; k++){
-	//while(!is_empty_job_queue(&bg_q)){
+		
 		temp_job_struct = pop_front_job_queue(&bg_q);
 		pid_queue *temp_q = &(temp_job_struct.process_q);
 		num_pids = length_pid_queue(temp_q);
 		
 		for(int i = 0; i<num_pids; ++i){
-		//while(!is_empty_pid_queue(temp_q)){
+
 			active = pop_front_pid_queue(temp_q);
+			
 			// If any given process in the job returns a zero
 			// value, then it is still running and we know the
 			// job is still active.
@@ -137,53 +138,20 @@ void check_jobs_bg_status() {
 
 		// Print completion message
 	 	if(!still_running){
+			
 			print_job_bg_complete(temp_job_struct.job_id, active, temp_job_struct.command);
-			// Clean up the job
+
+			// Clean up the completed job
 			destroy_pid_queue(&temp_job_struct.process_q);
 			free(temp_job_struct.command);
 		}
 		else{
+			// Need to put it back
 			push_back_job_queue(&bg_q, temp_job_struct);
 		}
 
 	}
-#if 0
-
-		printf("job_dead is %d, wrapping up check bg status...\n", job_dead);
-
-		// Grab info and Clean up
-		//destroy_pid_queue(temp_q);
-		jid = temp_job_struct.job_id;
-		
-		printf("Job id: %d\n", jid);
-	
-
- 		// fails here
-		pid = peek_front_pid_queue(&temp_job_struct.process_q);
-		
-		printf("Process id: %d\n", pid);
-
-		// If the job is not done, put it into the temp queue to be written
-		// back after all are checked
-		if(!job_dead){
-			printf("Job still alive, adding to temp queue...\n");
-			push_back_job_queue(&temp_job_q, temp_job_struct);
-		}
-		else{
-			printf("Job dead, printing completion msg..\n");
-			// Otherwise, print out the completion message
-			print_job_bg_complete(jid, pid, get_command_string());
-		}
-	}
-	// Refill job queue and clean up
-	
-	printf("Filling bg queue again...\n");
-	while(!is_empty_job_queue(&temp_job_q)){
-		push_back_job_queue(&bg_q, pop_front_job_queue(&temp_job_q));	
-	}
-
-#endif
-}
+}// end check_jobs_bg_status()
 
 
 // Prints the job id number, the process id of the first process belonging to
@@ -290,15 +258,9 @@ void run_cd(CDCommand cmd) {
 
 // Sends a signal to all processes contained in a job
 void run_kill(KillCommand cmd) {
+
 	int signal = cmd.sig;
 	int job_id = cmd.job;
-
-	// TODO: Remove warning silencers
-	(void) signal; // Silence unused variable warning
-	(void) job_id; // Silence unused variable warning
-
-	// TODO: Kill all processes associated with a background job
-	//IMPLEMENT_ME();
 
 	int num_jobs = length_job_queue(&bg_q);
 	for(int i = 0; i<num_jobs; i++){
@@ -560,7 +522,7 @@ void create_process(CommandHolder holder, job_struct *job) {
 			}
 			else{
 				
-				// open the fail at the given path in
+				// open the file at the given path in
 				// write/create mode (overwrite if exists)
 
 				/* ***NOTE***
@@ -705,9 +667,9 @@ void run_script(CommandHolder* holders) {
 	}
 	else {
 	 	int jid, pid;
+
 		// Make a struct to represent the job
 		// get the last pid
-
 		if(!is_empty_job_queue(&bg_q)){
 			// If there are jobs queued, the next job id is one
 			// more than that of the last job queued
