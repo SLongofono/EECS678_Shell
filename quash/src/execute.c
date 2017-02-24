@@ -4,34 +4,34 @@
  * @brief Implements interface functions between Quash and the environment and
  * functions that interpret an execute commands.
  *
- * @note As you add things to this file you may want to change the method signature
  */
 
 #include "execute.h"
-
 #include <stdio.h>
-
 #include "quash.h"
 
-// Remove this and all expansion calls to it
-/**
- * @brief Note calls to any function that requires implementation
- */
-#define IMPLEMENT_ME()                                                  \
-	fprintf(stderr, "IMPLEMENT ME: %s(line %d): %s()\n", __FILE__, __LINE__, __FUNCTION__)
 
+
+/****************************************************************************
+ * Globals
+ ***************************************************************************/
 
 // Global job queue handle
+// Used to track background job structs between calls
 static job_queue bg_q;
 
-// Only initialize it once
+// Flag such that above is only initialized once
 static int first_time = true;
 
-// Global pipe handles and tracking
+// Global pipe handles and tracking, used in create_process()
 static int env_pipes[2][2];
 static int in_pipe = -1;
 static int out_pipe = 0;
 
+
+/****************************************************************************
+ * Destructors
+ ***************************************************************************/
 
 /*
  * @brief Frees memory for the background queue on exit
@@ -51,30 +51,21 @@ void free_background_queue(){
 
 /*
  * @brief Destructor for job_structs
+ *
+ * @note 	This is passed to the deque data structure in place of the
+ * 		default destructor
  */
 void destroy_struct(job_struct job){
 	free(job.command);
 	destroy_pid_queue(&job.process_q);
 }
 
-/*
- * @brief Prints pids in pid_queues
- */
-void print_pid_values(int q){
-	printf("%d\n", q);
-}
-
-/*
- * @brief Prints jobs in job structs
- */
-void print_job_id(job_struct job){
-	printf("%d\n", job.job_id);
-}
 
 
 /***************************************************************************
  * Interface Functions
  ***************************************************************************/
+
 
 // Return a string containing the current working directory.
 char* get_current_directory(bool* should_free) {
@@ -95,12 +86,14 @@ char* get_current_directory(bool* should_free) {
 	return temp;
 }
 
+
 // Returns the value of an environment variable env_var
 const char* lookup_env(const char* env_var) {
 
 	return getenv(env_var);
 
 }
+
 
 // Check the status of background jobs
 void check_jobs_bg_status() {
@@ -164,17 +157,9 @@ void check_jobs_bg_status() {
 		push_back_job_queue(&bg_q, pop_front_job_queue(&temp_job_q));	
 	}
 
-	
-// Oriignal code	
-	// TODO: Check on the statuses of all processes belonging to all background
-	// jobs. This function should remove jobs from the jobs queue once all
-	// processes belonging to a job have completed.
-	//IMPLEMENT_ME();
-
-	// TODO: Once jobs are implemented, uncomment and fill the following line
-	// print_job_bg_complete(job_id, pid, cmd);
 #endif
 }
+
 
 // Prints the job id number, the process id of the first process belonging to
 // the Job, and the command string associated with this job
@@ -183,11 +168,13 @@ void print_job(int job_id, pid_t pid, const char* cmd) {
 	fflush(stdout);
 }
 
+
 // Prints a start up message for background processes
 void print_job_bg_start(int job_id, pid_t pid, const char* cmd) {
 	printf("Background job started: ");
 	print_job(job_id, pid, cmd);
 }
+
 
 // Prints a completion message followed by the print job
 void print_job_bg_complete(int job_id, pid_t pid, const char* cmd) {
@@ -195,9 +182,12 @@ void print_job_bg_complete(int job_id, pid_t pid, const char* cmd) {
 	print_job(job_id, pid, cmd);
 }
 
+
 /***************************************************************************
  * Functions to process commands
  ***************************************************************************/
+
+
 // Run a program reachable by the path environment variable, relative path, or
 // absolute path
 void run_generic(GenericCommand cmd) {
@@ -212,6 +202,7 @@ void run_generic(GenericCommand cmd) {
 
 	perror("ERROR: Failed to execute program");
 }
+
 
 // Print strings
 void run_echo(EchoCommand cmd) {
@@ -229,6 +220,7 @@ void run_echo(EchoCommand cmd) {
 	fflush(stdout);
 }
 
+
 // Sets an environment variable
 void run_export(ExportCommand cmd) {
 
@@ -237,6 +229,7 @@ void run_export(ExportCommand cmd) {
 	setenv(cmd.env_var, cmd.val, 1);
 	
 }
+
 
 // Changes the current working directory
 void run_cd(CDCommand cmd) {
@@ -268,6 +261,7 @@ void run_cd(CDCommand cmd) {
 		return;
 	}
 }
+
 
 // Sends a signal to all processes contained in a job
 void run_kill(KillCommand cmd) {
@@ -334,10 +328,13 @@ void run_pwd() {
 
 }
 
+
 // Prints all background jobs currently in the job list to stdout
 // USING THE FORMAT [job_id]<tab>#PID#<tab>commandstring
 void run_jobs() {
+
 	int num_jobs = length_job_queue(&bg_q);
+	
 	for(int i = 0; i<num_jobs; i++){
 		// Grab the front
 		job_struct temp = pop_front_job_queue(&bg_q);
@@ -347,50 +344,19 @@ void run_jobs() {
 		// Put job back in place
 		push_back_job_queue(&bg_q, temp);
 	}
-	// hidden in the bowels of the documentation, there is a helpful message
-	// saying that we must use the above format
-	
-//apply_job_queue(&bg_q, print_job_id);
 
-#if 0
-	// need a temp for the job queue (why on earth does this queue not have a
-	// traversal method?)
-	job_queue temp_job_q = new_destructable_job_queue(1, &destroy_struct);
-
-	// Unload everything into temp_job_q, printing as you go
-	while(! is_empty_job_queue(&bg_q)){
-		pid_queue temp = peek_front_job_queue(&bg_q).process_q;
-		pid_queue* active = &temp;
-		while(!is_empty_pid_queue(active)){
-			printf("%d\n", pop_front_pid_queue(active));	
-		}
-		destroy_pid_queue(active);
-		push_back_job_queue(&temp_job_q, (pop_front_job_queue(&bg_q)) );	
-	}
-
-	// Reload bg_q
-	while(! is_empty_job_queue(&temp_job_q)){
-		push_back_job_queue(&bg_q, (pop_front_job_queue(&temp_job_q)));
-	}
-
-	// destroy the temp job queue
-	destroy_job_queue(&temp_job_q);
-
-	// Flush the buffer before returning
 	fflush(stdout);
 
-	// Original  
-	// TODO: Print background jobs
-	//IMPLEMENT_ME();
-
-	// Flush the buffer before returning
-	//fflush(stdout);
-#endif
+// hidden in the bowels of the documentation, there is a helpful message
+// saying that we must use the above format
+	
 }
+
 
 /***************************************************************************
  * Functions for command resolution and process setup
  ***************************************************************************/
+
 
 /**
  * @brief A dispatch function to resolve the correct @a Command variant
@@ -435,6 +401,7 @@ void child_run_command(Command cmd) {
 	}
 }
 
+
 /**
  * @brief A dispatch function to resolve the correct @a Command variant
  * function for the quash process.
@@ -447,33 +414,36 @@ void child_run_command(Command cmd) {
  * @sa Command
  */
 void parent_run_command(Command cmd) {
+
 	CommandType type = get_command_type(cmd);
 
 	switch (type) {
-	case EXPORT:
-	  run_export(cmd.export);
-	  break;
+		case EXPORT:
+			run_export(cmd.export);
+			break;
 
-	case CD:
-	  run_cd(cmd.cd);
-	  break;
+		case CD:
+			run_cd(cmd.cd);
+			break;
 
-	case KILL:
-	  run_kill(cmd.kill);
-	  break;
+		case KILL:
+			run_kill(cmd.kill);
+			break;
 
-	case GENERIC:
-	case ECHO:
-	case PWD:
-	case JOBS:
-	case EXIT:
-	case EOC:
-	  break;
+		case GENERIC:
+		case ECHO:
+		case PWD:
+		case JOBS:
+		case EXIT:
+		case EOC:
+			break;
 
-	default:
-	  fprintf(stderr, "Unknown command type: %d\n", type);
+		default:
+		fprintf(stderr, "Unknown command type: %d\n", type);
 	}
+
 }
+
 
 /**
  * @brief Creates one new process centered around the @a Command in the @a
@@ -497,9 +467,9 @@ void create_process(CommandHolder holder, job_struct *job) {
 	bool p_out = holder.flags & PIPE_OUT;
 	bool r_in  = holder.flags & REDIRECT_IN;
 	bool r_out = holder.flags & REDIRECT_OUT;
-	bool r_app = holder.flags & REDIRECT_APPEND; // This can only be true if r_out
-						     // is true
-						     //
+	bool r_app = holder.flags & REDIRECT_APPEND;
+	// This can only be true if r_out is true
+
 	// Create only one pipe each time.  Start with the out pipe.  Since we
 	// can depend on the parser to never have p_out true on the final
 	// process in a pipe, we know we will always have exactly n-1 pipes
@@ -510,6 +480,7 @@ void create_process(CommandHolder holder, job_struct *job) {
 
 	int pid = fork();
 	if(0 == pid){  // Child process
+
 		if(p_in || p_out){
 
 			// If p_in, we need to connect the read end of the
@@ -519,7 +490,7 @@ void create_process(CommandHolder holder, job_struct *job) {
 				dup2(env_pipes[in_pipe][0], 0);
 				close(env_pipes[in_pipe][1]);
 			}
-
+	
 			// If p_out, we need to connect the write end of the
 			// global output pipe.  The values of the indices are
 			// updated at the end of this function
@@ -528,64 +499,68 @@ void create_process(CommandHolder holder, job_struct *job) {
 				close(env_pipes[out_pipe][0]);
 			}
 		}
-		else{
 
-			if(r_in){
-				// Open the file at the given path in read only mode
-				int fp = open(holder.redirect_in, O_RDONLY);
-				if (fp < 0){
-					perror("Error: could not open file for input redirection");
+
+		if(r_in){
+		
+			// Open the file at the given path in read only mode
+			int fp = open(holder.redirect_in, O_RDONLY);
+			if (fp < 0){
+				perror("Error: could not open file for input redirection");
+				return;
+			}
+
+			// Duplicate file descriptor to replace stdin
+			dup2(fp, 0);
+
+			// close now that we don't need it anymore
+			close(fp);
+		}
+		if(r_out){
+			
+			if(r_app){
+
+				// open the file at the given path in
+				// read/write/create mode (append if exists)
+				int fp = open(holder.redirect_out, O_RDWR | O_APPEND | O_CREAT, 0777);
+
+				if(fp < 0){
+					perror("ERROR: could not open file for output redirection");
 					return;
 				}
-	
-				// Duplicate file descriptor to replace stdin
-				dup2(fp, 0);
-	
+
+				// duplicate the file descriptor to replace
+				// stdout
+				dup2(fp, 1);
+
 				// close now that we don't need it anymore
 				close(fp);
 			}
-			if(r_out){
-				if(r_app){
-	
-					// open the file at the given path in
-					// read/write/create/append mode
-					int fp = open(holder.redirect_out, O_RDWR | O_APPEND | O_CREAT, 0777);
-	
-					if(fp < 0){
-						perror("ERROR: could not open file for output redirection");
-						return;
-					}
-	
-					// duplicate the file descriptor to replace
-					// stdout
-					dup2(fp, 1);
-	
-					// close now that we don't need it anymore
-					close(fp);
+			else{
+				
+				// open the fail at the given path in
+				// write/create mode (overwrite if exists)
+				int fp = open(holder.redirect_out, O_WRONLY | O_CREAT, 0777 | O_TRUNC);
+
+				if(fp < 0){
+					perror("Error: could not open file for output redirection");
+					return;	
 				}
-				else{
-					
-					// open the fail at the given path in
-					// read/write/create mode
-					int fp = open(holder.redirect_out, O_RDWR | O_CREAT, 0777);
-	
-					if(fp < 0){
-						perror("Error: could not open file for output redirection");
-						return;	
-					}
-	
-					// duplicate the file descriptor to replace
-					// stdout
-					dup2(fp, 1);
-	
-					// close now that we don't need it anymore
-					close(fp);
-				}
+
+				// duplicate the file descriptor to replace
+				// stdout
+				dup2(fp, 1);
+
+				// close now that we don't need it anymore
+				close(fp);
 			}
-		}
-		child_run_command(holder.cmd); // This should be done in the child branch of a fork
-		exit(0);
-	}// end child process block
+		} // end if(r_out)
+
+	child_run_command(holder.cmd); // This should be done in the child branch of a fork
+
+	exit(0);
+	
+	}// end if(0 == pid), child process block
 	else{
 		// Since we only create "out" pipes in parent, we need only
 		// close the out pipe write end
@@ -600,12 +575,19 @@ void create_process(CommandHolder holder, job_struct *job) {
 		// enforced by the fact that each process will block until
 		// data arrives from the previous process.
 		//
+		// Here is a sweet picture in case you forget later
+		//
+		//
 		// Stage 1:
 		//		__________		__________
 		// proc 1	__pipe 0__	proc 2	__pipe 1__
 		//
+		// 
+		//
+		// Stage 2:
 		//		__________		__________
 		// proc 3 write	__pipe 0__	proc 2	__pipe 1__ proc 3 read
+		//
 		//
 		// and so on...
 		//
@@ -613,8 +595,8 @@ void create_process(CommandHolder holder, job_struct *job) {
 		out_pipe = (out_pipe + 1) % 2;
 		in_pipe = (in_pipe + 1) % 2;
 
-		parent_run_command(holder.cmd); // This should be done in the parent branch of
-			                        // a fork
+		// Guess what I do
+		parent_run_command(holder.cmd);
 	}
 
 	// Add the child to the active foreground process queue
@@ -622,7 +604,19 @@ void create_process(CommandHolder holder, job_struct *job) {
 
 }
 
-// Run a list of commands
+
+/**
+ *
+ * @brief Creates processes for foreground and background queues
+ *
+ * @param holders	A list of CommandHolder types populated by the parser
+ * 			representing commands to be issued
+ *
+ * @note 	Create_process() does the heavy lifting with process creation,
+ * 		redirection, and piping.  This script enforces the order of
+ * 		execution, and separates the job into the background job queue
+ * 		if necessary.
+ */
 void run_script(CommandHolder* holders) {
 
 	// We only want to instantiate the bg_q once.  This is better encapsulated
@@ -635,6 +629,8 @@ void run_script(CommandHolder* holders) {
 	if (holders == NULL)
 	  return;
 
+	// This enforces the order of operations.  Background jobs will only
+	// report completion when the next command is entered.
 	check_jobs_bg_status();
 
 	if (get_command_holder_type(holders[0]) == EXIT &&
@@ -696,10 +692,12 @@ void run_script(CommandHolder* holders) {
 		// print again)
 		the_job.command = get_command_string();
 
+		
+		// Load job into background queue, print feedback, return
+		// control to main block
 		push_back_job_queue(&bg_q, the_job);
-
-		// Causes memory leak
 		print_job_bg_start(jid, pid, the_job.command);
 	}
+}// end run_script()
 
-}
+//END execute.c
